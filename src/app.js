@@ -1,55 +1,83 @@
-require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
-const cors = require('cors');
-const helmet = require('helmet');
-const { NODE_ENV } = require('./config');
+const { v4: uuid } = require('uuid');
 
 const app = express();
 
-const morganOption = (NODE_ENV === 'production')
-  ? 'tiny'
-  : 'common';
-
-app.use(morgan(morganOption));
+app.use(morgan('dev'));
 app.use(express.json());
-app.use(helmet());
-app.use(cors());
 
-let heyNow = ['the first one', 'the second one', 'the third one'];
+const users = [
+  {
+    'id': '3c8da4d5-1597-46e7-baa1-e402aed70d80',
+    'username': 'sallyStudent',
+    'password': 'c00d1ng1sc00l',
+    'favoriteClub': 'Cache Valley Stone Society',
+    'newsLetter': 'true'
+  },
+  {
+    'id': 'ce20079c-2326-4f17-8ac4-f617bfd28b7f',
+    'username': 'johnBlocton',
+    'password': 'veryg00dpassw0rd',
+    'favoriteClub': 'Salt City Curling Club',
+    'newsLetter': 'false'
+  },
+  {
+    'id': 'ce20079c-2326-4f17-8ac4-f617bfd28b7d',
+    'username': 'MattDizzle',
+    'password': 'veryg00dpassw0rd',
+    'favoriteClub': 'Salt City Curling Club',
+    'newsLetter': 'false'
+  }
+];
 
-app.get('/', (req, res) => {
-  // eslint-disable-next-line semi
-  res.send(heyNow)
-});
-
-app.post('/', (req, res) => {
-  console.log(req.body);
-  res.send('Post request recieved.');
+app.get('/user', (req, res) => {
+  console.log(users);
+  res.json(users);
 });
 
 app.post('/user', (req, res) => {
   // get the data
   const { username, password, favoriteClub, newsLetter=false } = req.body;
 
-  // validation code here
+  // All are required, check if they were sent
   if (!username) {
     return res
       .status(400)
       .send('Username required');
   }
 
-  if (username.length < 6 || username.length > 20) {
+  if (!password) {
     return res
       .status(400)
-      .send('Username must be between 6 and 20 characters');
+      .send('Password required');
   }
-  
 
   if (!favoriteClub) {
     return res
       .status(400)
       .send('favorite Club required');
+  }
+
+  // make sure username is correctly formatted.
+  if (username.length < 6 || username.length > 20) {
+    return res
+      .status(400)
+      .send('Username must be between 6 and 20 characters');
+  }
+
+  // password length
+  if (password.length < 8 || password.length > 36) {
+    return res
+      .status(400)
+      .send('Password must be between 8 and 36 characters');
+  }
+
+  // password contains digit, using a regex here
+  if (!password.match(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/)) {
+    return res
+      .status(400)
+      .send('Password must be contain at least one digit');
   }
 
   const clubs = [
@@ -59,7 +87,7 @@ app.post('/user', (req, res) => {
     'Salt City Curling Club',
     'Utah Olympic Oval Curling Club'
   ];
-  
+
   // make sure the club is valid
   if (!clubs.includes(favoriteClub)) {
     return res
@@ -67,27 +95,39 @@ app.post('/user', (req, res) => {
       .send('Not a valid club');
   }
 
+  const id = uuid();
+  const newUser = {
+    id,
+    username,
+    password,
+    favoriteClub,
+    newsLetter
+  };
 
-  if (!password) {
+  users.push(newUser);
+
+  // at this point all validation passed
+  res.send('All validation passed');
+});
+
+app.delete('/user/:userId', (req, res) => {
+  const { userId } = req.params;
+
+  const index = users.findIndex(u => u.id === userId);
+
+  // make sure we actually find a user with that id
+  if (index === -1) {
     return res
-      .status(400)
-      .send('Password required');
-  }
-  
-  // password length
-  if (password.length < 8 || password.length > 36) {
-    return res
-      .status(400)
-      .send('Password must be between 8 and 36 characters');
-  }
-  
-  // password contains digit, using a regex here
-  if (!password.match(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/)) {
-    return res
-      .status(400)
-      .send('Password must be contain at least one digit');
+      .status(404)
+      .send('User not found');
   }
 
+  users.splice(index, 1);
+
+  // res.send('Deleted');
+  res
+    .status(204)
+    .end();
 });
 
 
